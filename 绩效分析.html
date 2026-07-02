@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量化CTA基金绩效分析系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js">
+    </script>
+    <style>
+        :root {
+            --bg: #eef1f6;
+            --bg-accent: #e4eaf3;
+            --card-bg: #ffffff;
+            --primary: #1e3a5f;
+            --primary-light: #2d5a8e;
+            --primary-soft: #edf2f9;
+            --accent: #c8863a;
+            --accent-soft: #faf3ea;
+            --text: #1a2332;
+            --text-light: #64748b;
+            --border: #dde3ec;
+            --border-light: #eef2f7;
+            --shadow: 0 1px 3px rgba(30,58,95,0.06), 0 4px 16px rgba(30,58,95,0.04);
+            --shadow-lg: 0 8px 30px rgba(30,58,95,0.10);
+            --radius: 14px;
+            --radius-sm: 10px;
+            --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+            --font-mono: 'SF Mono','Cascadia Code','Consolas','Monaco','Menlo',monospace;
+            --danger: #dc4c4c;
+            --warning: #d4922a;
+            --success: #2d9d6b;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% -10%, rgba(45,90,142,0.08), transparent),
+                radial-gradient(ellipse 60% 40% at 90% 0%, rgba(200,134,58,0.06), transparent);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .header {
+            background: linear-gradient(120deg, #152238 0%, #1e3a5f 50%, #1a3050 100%);
+            color: #fff;
+            padding: 22px 0 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(21,34,56,0.18);
+        }
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+        }
+        .header-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 32px;
+        }
+        .header-logo { display: flex; align-items: center; gap: 16px; }
+        .header-logo .icon-box {
+            width: 46px; height: 46px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06));
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .header-logo .icon-box svg { width: 22px; height: 22px; stroke: rgba(255,255,255,0.9); fill: none; stroke-width: 1.8; }
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 650;
+            letter-spacing: -0.02em;
+            color: #fff;
+        }
+        .header .subtitle {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.55);
+            letter-spacing: 0.02em;
+            margin-top: 2px;
+        }
+        .main-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 28px 32px 48px;
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+        @media (max-width: 1100px) {
+            .main-container { grid-template-columns: 1fr; max-width: 760px; }
+        }
+        .left-panel, .right-panel { display: flex; flex-direction: column; gap: 20px; }
+        @media (min-width: 1101px) {
+            .left-panel { position: sticky; top: 96px; }
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 22px 24px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-light);
+            transition: box-shadow var(--transition), border-color var(--transition);
+        }
+        .card:hover { box-shadow: var(--shadow-lg); border-color: var(--border); }
+        .card-accent { border-top: 3px solid var(--accent); }
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 650;
+            color: var(--primary);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.01em;
+        }
+        .card-title .dot {
+            width: 4px; height: 18px;
+            border-radius: 2px;
+            background: linear-gradient(180deg, var(--primary-light), var(--accent));
+            flex-shrink: 0;
+        }
+        label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 6px;
+        }
+        input[type="file"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px dashed #c5d0de;
+            border-radius: var(--radius-sm);
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            background: var(--primary-soft);
+            color: var(--text-light);
+        }
+        input[type="file"]:hover {
+            border-color: var(--primary-light);
+            background: #e8eef6;
+            color: var(--primary);
+        }
+        input[type="number"] {
+            width: 88px;
+            padding: 8px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-family: var(--font-mono);
+            text-align: center;
+            transition: all var(--transition);
+            background: #fff;
+        }
+        input[type="number"]:focus {
+            border-color: var(--primary-light);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(45,90,142,0.1);
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 18px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.86rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(30,58,95,0.25);
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(30,58,95,0.3);
+        }
+        .btn-outline {
+            background: #fff;
+            color: var(--primary);
+            border: 1.5px solid var(--border);
+        }
+        .btn-outline:hover {
+            background: var(--primary-soft);
+            border-color: var(--primary-light);
+        }
+        .btn-sm { padding: 7px 14px; font-size: 0.78rem; }
+        .btn-accent {
+            background: linear-gradient(135deg, #b8782e, var(--accent));
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(200,134,58,0.3);
+        }
+        .btn-accent:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(200,134,58,0.35);
+        }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+        .info-banner {
+            background: var(--primary-soft);
+            border: 1px solid #d4ddea;
+            padding: 12px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 0.78rem;
+            color: #4a6080;
+            margin: 12px 0;
+            line-height: 1.65;
+        }
+        .info-banner strong { color: var(--primary); font-weight: 650; }
+        .status-text {
+            font-size: 0.78rem;
+            color: var(--text-light);
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+        }
+        .summary-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+        .summary-item {
+            background: linear-gradient(160deg, #fafbfd 0%, #f4f7fb 100%);
+            border-radius: var(--radius-sm);
+            padding: 16px 12px;
+            text-align: center;
+            border: 1px solid var(--border-light);
+            transition: transform var(--transition);
+        }
+        .summary-item:hover { transform: translateY(-2px); }
+        .summary-item .val {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--primary);
+            font-family: var(--font-mono);
+            letter-spacing: -0.03em;
+        }
+        .summary-item .val.positive { color: var(--success); }
+        .summary-item .val.negative { color: var(--danger); }
+        .summary-item .lbl {
+            font-size: 0.68rem;
+            color: var(--text-light);
+            margin-top: 4px;
+            font-weight: 500;
+        }
+        .table-wrap {
+            overflow-x: auto;
+            margin-top: 4px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-light);
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.81rem; }
+        table th, table td { padding: 11px 14px; text-align: center; }
+        table th {
+            background: var(--primary-soft);
+            font-weight: 650;
+            color: var(--primary);
+            font-size: 0.73rem;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--border);
+        }
+        table td { border-bottom: 1px solid var(--border-light); }
+        table tbody tr:last-child td { border-bottom: none; }
+        table tbody tr:hover { background: #f8fafd; }
+        .reg-footer {
+            font-size: 0.73rem;
+            color: var(--text-light);
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+        .badge-sig {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.68rem;
+            font-weight: 600;
+        }
+        .badge-sig.high { background: #e6f5ed; color: #1a7a4a; }
+        .badge-sig.med { background: #fef6e8; color: #9a6b1a; }
+        .badge-sig.low { background: #fdeeed; color: #b33a3a; }
+        .chart-wrap {
+            position: relative;
+            width: 100%;
+            padding: 16px;
+            background: #fafbfd;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-light);
+        }
+        .chart-wrap canvas { width: 100% !important; max-height: 340px; }
+        .chart-section-divider {
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+        .chart-section-title {
+            font-size: 0.9rem;
+            font-weight: 650;
+            color: var(--primary);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .chart-section-title .tag {
+            font-size: 0.68rem;
+            font-weight: 500;
+            color: var(--text-light);
+            background: var(--primary-soft);
+            padding: 3px 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+        .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 900px) { .chart-row { grid-template-columns: 1fr; } }
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(238,241,246,0.82);
+            backdrop-filter: blur(6px);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .loading-overlay.active { display: flex; }
+        .spinner {
+            width: 42px; height: 42px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.75s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .toast {
+            position: fixed;
+            bottom: 28px; right: 28px;
+            background: var(--primary);
+            color: #fff;
+            padding: 13px 22px;
+            border-radius: var(--radius-sm);
+            font-size: 0.84rem;
+            z-index: 300;
+            opacity: 0;
+            transform: translateY(16px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+            box-shadow: var(--shadow-lg);
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.error { background: #b33a3a; }
+        .factor-selector {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .factor-chip {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.74rem;
+            cursor: pointer;
+            border: 1.5px solid var(--border);
+            background: #fff;
+            transition: all var(--transition);
+            font-weight: 500;
+            color: var(--text);
+        }
+        .factor-chip:hover {
+            border-color: var(--primary-light);
+            background: var(--primary-soft);
+        }
+        .factor-chip.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+            box-shadow: 0 2px 8px rgba(30,58,95,0.25);
+        }
+        .setting-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 12px 14px;
+            background: #f8fafc;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-light);
+        }
+        .setting-row label { margin: 0; }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div class="header-inner">
+        <div class="header-logo">
+            <div class="icon-box">
+                <svg viewBox="0 0 24 24"><path d="M3 20h18M7 16l4-8 4 5 5-9"/></svg>
+            </div>
+            <div>
+                <h1>量化CTA绩效分析系统</h1>
+                <div class="subtitle">因子暴露度分析 · 绩效归因</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="main-container">
+    <div class="left-panel">
+        <div class="card">
+            <div class="card-title"><span class="dot"></span>基金净值数据</div>
+            <label>上传基金净值 CSV</label>
+            <input type="file" id="fileInput" accept=".csv,.txt" />
+            <div class="info-banner">
+                <strong>格式：</strong>日期 (YYYY-MM-DD) + 净值两列，或仅净值列
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-outline btn-sm" id="btnLoadDemo">加载示例</button>
+                <button class="btn btn-outline btn-sm" id="btnClearData">清除数据</button>
+            </div>
+            <div id="dataStatus" class="status-text">
+                状态：<span style="color:#94a3b8;">等待导入...</span>
+            </div>
+        </div>
+
+        <div class="card card-accent">
+            <div class="card-title"><span class="dot"></span>市场因子数据</div>
+            <label>上传因子收益率 CSV</label>
+            <input type="file" id="factorFileInput" accept=".csv,.txt" />
+            <div class="info-banner">
+                <strong>格式：</strong>第一列日期，后续每列一种因子日收益率。<br>
+                需含表头，分隔符支持逗号 / 分号 / 制表符。
+            </div>
+            <div id="factorStatus" class="status-text">
+                当前使用：<strong>内置模拟因子（6个）</strong>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-outline btn-sm" id="btnResetFactors">恢复内置因子</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><span class="dot"></span>分析设置</div>
+            <div class="setting-row">
+                <label>滚动窗口（天）</label>
+                <input type="number" id="rollingWindow" value="60" min="20" max="200" step="5" />
+            </div>
+            <div style="margin-top:14px;">
+                <label>选择因子</label>
+                <div id="factorCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;"></div>
+            </div>
+            <button class="btn btn-primary" id="btnRunAnalysis" style="width:100%;margin-top:16px;">运行因子暴露度分析</button>
+            <button class="btn btn-accent btn-sm" id="btnExportReport" style="width:100%;margin-top:8px;" disabled>导出分析报告</button>
+        </div>
+
+        <div class="card" id="dataSummaryCard" style="display:none;">
+            <div class="card-title"><span class="dot"></span>基金数据概要</div>
+            <div id="dataSummaryContent" style="font-size:0.81rem;color:var(--text-light);line-height:1.75;"></div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="card" id="summaryCard" style="display:none;">
+            <div class="card-title"><span class="dot"></span>分析摘要</div>
+            <div class="summary-row" id="summaryRow"></div>
+        </div>
+        <div class="card" id="exposureTableCard" style="display:none;">
+            <div class="card-title"><span class="dot"></span>因子暴露度（全样本回归）</div>
+            <div class="table-wrap">
+                <table id="exposureTable">
+                    <thead><tr><th>因子</th><th>暴露度(β)</th><th>标准误</th><th>t统计量</th><th>p值</th><th>显著性</th><th>VIF</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="reg-footer">
+                R² = <span id="rSquaredVal">--</span> &nbsp;|&nbsp; 调整R² = <span id="adjRSquaredVal">--</span> &nbsp;|&nbsp; 年化Alpha = <span id="annualAlphaVal">--</span>
+            </div>
+        </div>
+        <div class="card" id="chartsCard" style="display:none;">
+            <div class="card-title"><span class="dot"></span>可视化分析</div>
+            <div class="chart-wrap" style="margin-bottom:18px;"><canvas id="chartExposure"></canvas></div>
+            <div class="chart-row">
+                <div class="chart-wrap"><canvas id="chartNAV"></canvas></div>
+                <div class="chart-wrap"><canvas id="chartRollingBeta"></canvas></div>
+            </div>
+            <div class="factor-selector" id="rollingFactorSelector"></div>
+            <div class="chart-wrap" style="margin-top:16px;"><canvas id="chartCumContrib"></canvas></div>
+
+            <div class="chart-section-divider">
+                <div class="chart-section-title">
+                    <span>因子收益率序列</span>
+                    <span class="tag">对齐样本区间</span>
+                </div>
+                <div class="chart-wrap"><canvas id="chartFactorCumNav"></canvas></div>
+                <div class="factor-selector" id="factorSeriesSelector"></div>
+                <div class="chart-row" style="margin-top:16px;">
+                    <div class="chart-wrap"><canvas id="chartFactorDaily"></canvas></div>
+                    <div class="chart-wrap"><canvas id="chartFactorRollingVol"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <span style="font-weight:600;color:var(--primary);">正在计算因子暴露度...</span>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+    // ==================== 全局状态 ====================
+    const STATE = {
+        fundNAV: null,
+        factorData: null,          // { dates, factors: {name: returns[]}, factorNames: [] }
+        useBuiltInFactors: true,   // 是否使用内置模拟因子
+        alignedData: null,
+        regressionResult: null,
+        rollingResults: null,
+        selectedRollingFactor: null,
+        selectedSeriesFactor: null,
+    };
+
+    // ==================== 内置因子数据生成（保留，当用户未上传时使用） ====================
+    function generateBuiltInFactorData() {
+        let seed = 42;
+        const seededRandom = () => { seed = (seed * 16807 + 0) % 2147483647; return (seed - 1) / 2147483646; };
+        const gaussRandom = () => {
+            const u1 = seededRandom(), u2 = seededRandom();
+            return Math.sqrt(-2 * Math.log(Math.max(u1,1e-10))) * Math.cos(2 * Math.PI * u2);
+        };
+        const dates = [];
+        const startDate = new Date(2023,0,3);
+        const endDate = new Date(2025,1,28);
+        const current = new Date(startDate);
+        while (current <= endDate) {
+            if (current.getDay() !== 0 && current.getDay() !== 6) dates.push(current.toISOString().split('T')[0]);
+            current.setDate(current.getDate() + 1);
+        }
+        const n = dates.length;
+        const factorNames = ['趋势跟踪 (Trend)','横截面动量 (Momentum)','波动率 (Volatility)','价值 (Value)','利差 (Carry)','商品市场 (Commodity Beta)'];
+        const factorKeys = ['trend','momentum','volatility','value','carry','commodity'];
+        const factorParams = [
+            { annualRet:8.0, annualVol:18.0, autocorr:0.04 },
+            { annualRet:4.0, annualVol:14.0, autocorr:0.02 },
+            { annualRet:-2.0, annualVol:22.0, autocorr:0.06 },
+            { annualRet:3.0, annualVol:12.0, autocorr:0.03 },
+            { annualRet:5.0, annualVol:10.0, autocorr:0.05 },
+            { annualRet:2.0, annualVol:16.0, autocorr:0.01 }
+        ];
+        const dailyFactorReturns = {};
+        factorKeys.forEach((key,idx) => {
+            const p = factorParams[idx];
+            const dailyMean = p.annualRet/100/252, dailyStd = p.annualVol/100/Math.sqrt(252), ar = p.autocorr;
+            const series = []; let prev = gaussRandom()*dailyStd;
+            for(let i=0;i<n;i++) {
+                prev = dailyMean + ar*prev + gaussRandom()*dailyStd*Math.sqrt(1-ar*ar);
+                series.push(prev);
+            }
+            dailyFactorReturns[key] = series;
+        });
+        const corrTarget = [
+            [1.00,0.25,-0.15,0.10,0.20,0.30],
+            [0.25,1.00,-0.05,0.20,0.15,0.22],
+            [-0.15,-0.05,1.00,-0.10,-0.05,0.08],
+            [0.10,0.20,-0.10,1.00,0.30,0.12],
+            [0.20,0.15,-0.05,0.30,1.00,0.18],
+            [0.30,0.22,0.08,0.12,0.18,1.00]
+        ];
+        const L = choleskyDecomp(corrTarget);
+        for(let i=0;i<n;i++) {
+            const raw = factorKeys.map(k=>dailyFactorReturns[k][i]);
+            const mixed = new Array(6).fill(0);
+            for(let r=0;r<6;r++) for(let c=0;c<=r;c++) mixed[r] += L[r][c]*raw[c];
+            factorKeys.forEach((k,idx)=>{ dailyFactorReturns[k][i] = mixed[idx]; });
+        }
+        const factors = {};
+        factorKeys.forEach((key,idx)=>{ factors[factorNames[idx]] = dailyFactorReturns[key]; });
+        return { dates, factors, factorNames, factorKeys };
+    }
+
+    function choleskyDecomp(matrix) {
+        const n = matrix.length;
+        const L = Array.from({length:n},()=>new Array(n).fill(0));
+        for(let i=0;i<n;i++) {
+            for(let j=0;j<=i;j++) {
+                let sum=0;
+                for(let k=0;k<j;k++) sum+=L[i][k]*L[j][k];
+                if(i===j) L[i][j]=Math.sqrt(Math.max(matrix[i][i]-sum,1e-12));
+                else L[i][j]=(matrix[i][j]-sum)/Math.max(L[j][j],1e-12);
+            }
+        }
+        return L;
+    }
+
+    function generateDemoFund(factorData) {
+        const n = factorData.dates.length;
+        const trueExposures = {
+            '趋势跟踪 (Trend)':0.35, '横截面动量 (Momentum)':0.20, '波动率 (Volatility)':-0.10,
+            '价值 (Value)':0.15, '利差 (Carry)':0.25, '商品市场 (Commodity Beta)':0.20
+        };
+        const dailyAlpha = 0.03/252;
+        const dailyIdioStd = 0.08/Math.sqrt(252);
+        let seed2=12345;
+        const sr=()=>{seed2=(seed2*16807+0)%2147483647;return (seed2-1)/2147483646;};
+        const gr=()=>{const u1=sr(),u2=sr();return Math.sqrt(-2*Math.log(Math.max(u1,1e-10)))*Math.cos(2*Math.PI*u2);};
+        const dailyReturns = [];
+        for(let i=0;i<n;i++) {
+            let ret = dailyAlpha;
+            for(const [fname,beta] of Object.entries(trueExposures)) ret += beta * factorData.factors[fname][i];
+            ret += gr()*dailyIdioStd;
+            dailyReturns.push(ret);
+        }
+        const nav = [1.0];
+        for(let i=0;i<n;i++) nav.push(nav[i]*(1+dailyReturns[i]));
+        return { dates: factorData.dates, nav: nav.slice(1), returns: dailyReturns, initialNAV:1.0 };
+    }
+
+    // ==================== 因子CSV解析 ====================
+    function normalizeDateStr(d) {
+        if (!d) return null;
+        const s = String(d).trim().replace(/^"|"$/g, '');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s)) {
+            const [y, m, day] = s.split('/');
+            return `${y}-${m.padStart(2,'0')}-${day.padStart(2,'0')}`;
+        }
+        if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)) {
+            const [y, m, day] = s.split('-');
+            return `${y}-${m.padStart(2,'0')}-${day.padStart(2,'0')}`;
+        }
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+            const p = s.split('/');
+            return `${p[2]}-${p[0].padStart(2,'0')}-${p[1].padStart(2,'0')}`;
+        }
+        return null;
+    }
+
+    function parseFactorCSV(text) {
+        text = text.replace(/^\uFEFF/, '');
+        const lines = text.trim().split(/\r?\n/).filter(l => l.trim().length > 0);
+        if (lines.length < 2) throw new Error('因子CSV至少需要表头+一行数据');
+        const delimiter = lines[0].includes('\t') ? '\t' : (lines[0].includes(';') ? ';' : ',');
+        const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+        if (headers.length < 2) throw new Error('至少需要日期列和一个因子列');
+
+        const factorNames = headers.slice(1);
+        const factorData = { dates: [], factors: {}, factorNames };
+        factorNames.forEach(fn => { factorData.factors[fn] = []; });
+
+        let skippedDate = 0;
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+            if (cols.length < headers.length) continue;
+            const dateStr = normalizeDateStr(cols[0]);
+            if (!dateStr) { skippedDate++; continue; }
+            factorData.dates.push(dateStr);
+            for (let j = 1; j < cols.length; j++) {
+                const val = parseFloat(cols[j]);
+                factorData.factors[factorNames[j - 1]].push(isNaN(val) ? 0 : val);
+            }
+        }
+
+        if (factorData.dates.length < 20) {
+            const hint = skippedDate > 0
+                ? `（跳过了 ${skippedDate} 行无法识别的日期，请用 YYYY-MM-DD 或 YYYY/M/D 格式）`
+                : '';
+            throw new Error(`有效因子数据不足（仅 ${factorData.dates.length} 行，至少需 20 个交易日）${hint}`);
+        }
+        return factorData;
+    }
+
+    // ==================== 基金CSV解析 ====================
+    function parseFundCSV(text) {
+        const lines = text.trim().split('\n').filter(l=>l.trim().length>0);
+        if(lines.length<2) throw new Error('CSV文件数据不足');
+        const delimiter = lines[0].includes('\t')?'\t':(lines[0].includes(';')?';':',');
+        const rows = lines.map(l=>l.split(delimiter).map(c=>c.trim().replace(/^"|"$/g,'')));
+        let dataStartIdx = 0;
+        if(isNaN(parseFloat(rows[0][0])) && isNaN(parseFloat(rows[0][rows[0].length-1]))) dataStartIdx=1;
+        const dataRows = rows.slice(dataStartIdx);
+        let dates=[], navValues=[];
+        if(dataRows[0].length>=2) {
+            for(const row of dataRows) {
+                const d = row[0], v = parseFloat(row[1]);
+                if(isNaN(v)) continue;
+                let parsed = d;
+                if(/^\d{4}-\d{2}-\d{2}$/.test(d)) parsed=d;
+                else if(/^\d{4}\/\d{2}\/\d{2}$/.test(d)) parsed=d.replace(/\//g,'-');
+                else if(/^\d{2}\/\d{2}\/\d{4}$/.test(d)){ const p=d.split('/'); parsed=`${p[2]}-${p[0]}-${p[1]}`; }
+                dates.push(parsed); navValues.push(v);
+            }
+        } else {
+            for(const row of dataRows) { const v=parseFloat(row[0]); if(!isNaN(v)) navValues.push(v); }
+            dates = navValues.map((_,i)=>`Day_${i+1}`);
+        }
+        if(navValues.length<10) throw new Error('有效净值数据不足');
+        const returns=[];
+        for(let i=1;i<navValues.length;i++) returns.push((navValues[i]-navValues[i-1])/Math.max(navValues[i-1],1e-10));
+        return { dates, nav:navValues, returns, initialNAV:navValues[0] };
+    }
+
+    // ==================== 日期对齐与回归函数（不变） ====================
+    function alignData(fundData, factorData, selectedFactorNames) {
+        const fundMap={}; fundData.dates.forEach((d,i)=>{ if(i<fundData.returns.length) fundMap[d]=fundData.returns[i]; });
+        const factorMap={}; factorData.dates.forEach((d,i)=>{ factorMap[d]=i; });
+        const alignedDates=[], alignedFundReturns=[], alignedFactorIdx=[];
+        for(const date of factorData.dates) {
+            if(fundMap.hasOwnProperty(date) && factorMap.hasOwnProperty(date)) {
+                alignedDates.push(date); alignedFundReturns.push(fundMap[date]); alignedFactorIdx.push(factorMap[date]);
+            }
+        }
+        if(alignedDates.length<20) throw new Error(`对齐后仅${alignedDates.length}个数据点，不足20个`);
+        const factorMatrix={};
+        selectedFactorNames.forEach(fn=>{ factorMatrix[fn]=alignedFactorIdx.map(idx=>factorData.factors[fn][idx]); });
+        return { dates:alignedDates, fundReturns:alignedFundReturns, factorMatrix, factorNames:selectedFactorNames };
+    }
+
+    function matrixMultiply(A,B){ const rA=A.length,cA=A[0].length,cB=B[0].length; const res=Array.from({length:rA},()=>new Array(cB).fill(0)); for(let i=0;i<rA;i++) for(let k=0;k<cA;k++){ const aik=A[i][k]; if(Math.abs(aik)<1e-20) continue; for(let j=0;j<cB;j++) res[i][j]+=aik*B[k][j]; } return res; }
+    function matrixTranspose(A){ const r=A.length,c=A[0].length; const res=Array.from({length:c},()=>new Array(r).fill(0)); for(let i=0;i<r;i++) for(let j=0;j<c;j++) res[j][i]=A[i][j]; return res; }
+    function matrixInverse(A){ const n=A.length; const aug=A.map((row,i)=>{ const r=[...row]; for(let j=0;j<n;j++) r.push(i===j?1:0); return r; }); for(let col=0;col<n;col++){ let maxRow=col,maxVal=Math.abs(aug[col][col]); for(let row=col+1;row<n;row++){ if(Math.abs(aug[row][col])>maxVal){ maxVal=Math.abs(aug[row][col]); maxRow=row; } } if(maxVal<1e-13) throw new Error('矩阵奇异'); if(maxRow!==col) [aug[col],aug[maxRow]]=[aug[maxRow],aug[col]]; const pivot=aug[col][col]; for(let j=col;j<2*n;j++) aug[col][j]/=pivot; for(let row=0;row<n;row++){ if(row===col) continue; const factor=aug[row][col]; for(let j=col;j<2*n;j++) aug[row][j]-=factor*aug[col][j]; } } return aug.map(row=>row.slice(n)); }
+    function olsRegression(Y, XMatrix, factorNames){
+        const n=Y.length, k=factorNames.length+1;
+        const X=Array.from({length:n},()=>new Array(k).fill(0));
+        for(let i=0;i<n;i++){ X[i][0]=1; for(let j=0;j<factorNames.length;j++) X[i][j+1]=XMatrix[factorNames[j]][i]; }
+        const XT=matrixTranspose(X), XTX=matrixMultiply(XT,X), XTX_inv=matrixInverse(XTX);
+        const Ymat=Y.map(y=>[y]); const XTY=matrixMultiply(XT,Ymat); const beta=matrixMultiply(XTX_inv,XTY);
+        const fitted=X.map(row=>row.reduce((s,xij,j)=>s+xij*beta[j][0],0));
+        const residuals=Y.map((yi,i)=>yi-fitted[i]);
+        const RSS=residuals.reduce((s,r)=>s+r*r,0);
+        const TSS=Y.reduce((s,yi)=>{ const m=Y.reduce((a,b)=>a+b,0)/n; return s+(yi-m)**2; },0);
+        const rSquared=TSS>1e-15?1-RSS/TSS:0;
+        const adjRSquared=n>k?1-(1-rSquared)*(n-1)/(n-k):rSquared;
+        const sigma2=RSS/(n-k);
+        const se=[]; for(let j=0;j<k;j++) se.push(Math.sqrt(Math.max(sigma2*XTX_inv[j][j],0)));
+        const tStats=beta.map((b,j)=>se[j]>1e-15?b[0]/se[j]:0);
+        const df=n-k;
+        const pValues=tStats.map(t=>tDistPValue(Math.abs(t),df));
+        const vif=[null];
+        for(let j=1;j<k;j++){
+            const yj=X.map(row=>row[j]);
+            const X_others=Array.from({length:n},(_,i)=>{ const row=[1]; for(let m=1;m<k;m++) if(m!==j) row.push(X[i][m]); return row; });
+            const XoT=matrixTranspose(X_others), XoTXo=matrixMultiply(XoT,X_others);
+            try{
+                const XoTXo_inv=matrixInverse(XoTXo);
+                const beta_o=matrixMultiply(matrixMultiply(XoTXo_inv,XoT),yj.map(y=>[y]));
+                const fitted_o=X_others.map(row=>row.reduce((s,xij,jj)=>s+xij*beta_o[jj][0],0));
+                const rss_o=yj.reduce((s,yi,i)=>s+(yi-fitted_o[i])**2,0);
+                const tss_o=yj.reduce((s,yi)=>{ const m=yj.reduce((a,b)=>a+b,0)/n; return s+(yi-m)**2; },0);
+                const r2_o=tss_o>1e-15?1-rss_o/tss_o:0;
+                vif.push(r2_o<0.9999?1/(1-r2_o):999);
+            }catch(e){ vif.push(999); }
+        }
+        return { coefficients:beta.map(b=>b[0]), standardErrors:se, tStats, pValues, rSquared, adjRSquared, residuals, fitted, vif, n, k, df, factorNames:['Alpha (截距)',...factorNames] };
+    }
+    function tDistPValue(tAbs,df){
+        if(df<1) df=1;
+        const normCDF=x=>{ const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911; const sign=x>=0?1:-1; const xx=Math.abs(x)/Math.sqrt(2); const t=1/(1+p*xx); const y=1-(((((a5*t+a4)*t+a3)*t+a2)*t+a1)*t*Math.exp(-xx*xx)); return 0.5*(1+sign*y); };
+        const pNorm=2*(1-normCDF(tAbs));
+        if(df<30){ const adj=1+(tAbs*tAbs+1)/(4*df)+(tAbs**4+6*tAbs*tAbs+3)/(96*df*df); return Math.min(1,Math.max(0,pNorm*adj)); }
+        return Math.min(1,Math.max(0,pNorm));
+    }
+    function rollingRegression(alignedData, windowSize){
+        const n=alignedData.dates.length, factorNames=alignedData.factorNames;
+        if(n<windowSize) return null;
+        const results={ dates:[], betas:{}, tStats:{}, rSquared:[], alpha:[] };
+        factorNames.forEach(fn=>{ results.betas[fn]=[]; results.tStats[fn]=[]; });
+        for(let start=0; start<=n-windowSize; start++){
+            const end=start+windowSize;
+            const Y=alignedData.fundReturns.slice(start,end);
+            const XMatrix={}; factorNames.forEach(fn=>{ XMatrix[fn]=alignedData.factorMatrix[fn].slice(start,end); });
+            try{
+                const reg=olsRegression(Y,XMatrix,factorNames);
+                results.dates.push(alignedData.dates[end-1]);
+                results.alpha.push(reg.coefficients[0]);
+                factorNames.forEach((fn,idx)=>{ results.betas[fn].push(reg.coefficients[idx+1]); results.tStats[fn].push(reg.tStats[idx+1]); });
+                results.rSquared.push(reg.rSquared);
+            }catch(e){
+                results.dates.push(alignedData.dates[end-1]); results.alpha.push(NaN);
+                factorNames.forEach(fn=>{ results.betas[fn].push(NaN); results.tStats[fn].push(NaN); });
+                results.rSquared.push(NaN);
+            }
+        }
+        return results;
+    }
+
+    // ==================== UI更新函数 ====================
+    let chartExposureInstance=null, chartNAVInstance=null, chartRollingBetaInstance=null, chartCumContribInstance=null;
+    let chartFactorCumNavInstance=null, chartFactorDailyInstance=null, chartFactorRollingVolInstance=null;
+    function destroyCharts(){
+        [chartExposureInstance,chartNAVInstance,chartRollingBetaInstance,chartCumContribInstance,
+         chartFactorCumNavInstance,chartFactorDailyInstance,chartFactorRollingVolInstance].forEach(inst=>{
+            if(inst){ inst.destroy(); inst=null; }
+        });
+        chartExposureInstance=null; chartNAVInstance=null; chartRollingBetaInstance=null; chartCumContribInstance=null;
+        chartFactorCumNavInstance=null; chartFactorDailyInstance=null; chartFactorRollingVolInstance=null;
+    }
+    function updateFactorCheckboxes(){
+        const container = document.getElementById('factorCheckboxes');
+        container.innerHTML = '';
+        const factorNames = STATE.factorData.factorNames;
+        const colors = ['#2d5a8e','#c8863a','#2d9d6b','#7c5cbf','#dc6b4c','#3a8fb5','#9b6b3d','#5a7c9e'];
+        factorNames.forEach((name,idx)=>{
+            const cb = document.createElement('label');
+            cb.style.cssText = `display:flex;align-items:center;gap:5px;font-size:0.78rem;cursor:pointer;padding:4px 8px;border-radius:4px;border:1.5px solid ${colors[idx%colors.length]}20;background:${colors[idx%colors.length]}08;`;
+            cb.innerHTML = `<input type="checkbox" checked data-factor="${name}" style="accent-color:${colors[idx%colors.length]};" /> ${name}`;
+            container.appendChild(cb);
+        });
+    }
+    function updateDataStatus(){
+        const el = document.getElementById('dataStatus');
+        if(STATE.fundNAV && STATE.fundNAV.dates.length>0){
+            const n=STATE.fundNAV.dates.length;
+            el.innerHTML = `状态：<span style="color:var(--success);font-weight:600;">已加载</span> — ${n} 个数据点`;
+        } else {
+            el.innerHTML = '状态：<span style="color:#94a3b8;">等待导入...</span>';
+        }
+    }
+    function updateDataSummary(){
+        const card=document.getElementById('dataSummaryCard'), content=document.getElementById('dataSummaryContent');
+        if(!STATE.fundNAV||!STATE.fundNAV.dates.length){ card.style.display='none'; return; }
+        card.style.display='block';
+        const rets=STATE.fundNAV.returns, n=rets.length;
+        const meanRet=rets.reduce((a,b)=>a+b,0)/n;
+        const varRet=rets.reduce((s,r)=>s+(r-meanRet)**2,0)/(n-1);
+        const stdRet=Math.sqrt(varRet);
+        const annualRet=meanRet*252, annualVol=stdRet*Math.sqrt(252);
+        const sharpe=annualVol>1e-10?annualRet/annualVol:0;
+        const nav=STATE.fundNAV.nav;
+        let peak=nav[0], maxDD=0;
+        for(let i=1;i<nav.length;i++){ if(nav[i]>peak) peak=nav[i]; const dd=(peak-nav[i])/peak; if(dd>maxDD) maxDD=dd; }
+        content.innerHTML = `数据点数：${n} 个交易日<br>年化收益率：${(annualRet*100).toFixed(2)}%<br>年化波动率：${(annualVol*100).toFixed(2)}%<br>夏普比率：${sharpe.toFixed(3)}<br>最大回撤：${(maxDD*100).toFixed(2)}%<br>最终净值：${nav[nav.length-1].toFixed(4)}`;
+    }
+    function resetResults(){
+        document.getElementById('summaryCard').style.display='none';
+        document.getElementById('exposureTableCard').style.display='none';
+        document.getElementById('chartsCard').style.display='none';
+        document.getElementById('btnExportReport').disabled=true;
+        destroyCharts();
+    }
+    function showToast(msg,type=''){
+        const toast=document.getElementById('toast');
+        toast.textContent=msg; toast.className='toast '+(type||'');
+        toast.offsetHeight; toast.classList.add('show');
+        clearTimeout(toast._timeout);
+        toast._timeout=setTimeout(()=>toast.classList.remove('show'),2500);
+    }
+
+    function runAnalysis(){
+        if(!STATE.fundNAV||STATE.fundNAV.returns.length<10){ showToast('请先导入基金净值数据','error'); return; }
+        const checkboxes=document.querySelectorAll('#factorCheckboxes input[type="checkbox"]');
+        const selectedFactors=[]; checkboxes.forEach(cb=>{ if(cb.checked) selectedFactors.push(cb.dataset.factor); });
+        if(selectedFactors.length<2){ showToast('请至少选择2个因子','error'); return; }
+        const windowSize=parseInt(document.getElementById('rollingWindow').value)||60;
+        if(windowSize<15||windowSize>200){ showToast('滚动窗口应在15-200之间','error'); return; }
+        document.getElementById('loadingOverlay').classList.add('active');
+        setTimeout(()=>{
+            try{
+                const aligned = alignData(STATE.fundNAV, STATE.factorData, selectedFactors);
+                STATE.alignedData = aligned;
+                const regResult = olsRegression(aligned.fundReturns, aligned.factorMatrix, aligned.factorNames);
+                STATE.regressionResult = regResult;
+                const rollingRes = rollingRegression(aligned, windowSize);
+                STATE.rollingResults = rollingRes;
+                STATE.selectedRollingFactor = selectedFactors[0];
+                STATE.selectedSeriesFactor = selectedFactors[0];
+                updateSummaryCard(regResult, aligned);
+                updateExposureTable(regResult);
+                updateCharts(regResult, aligned, rollingRes, selectedFactors);
+                updateRollingFactorSelector(selectedFactors);
+                updateFactorSeriesSelector(selectedFactors);
+                document.getElementById('summaryCard').style.display='block';
+                document.getElementById('exposureTableCard').style.display='block';
+                document.getElementById('chartsCard').style.display='block';
+                document.getElementById('btnExportReport').disabled=false;
+                updateDataSummary();
+                showToast('分析完成，R² = ' + (regResult.rSquared * 100).toFixed(2) + '%');
+            }catch(err){
+                console.error(err); showToast('分析失败：'+err.message,'error');
+            }finally{
+                document.getElementById('loadingOverlay').classList.remove('active');
+            }
+        },80);
+    }
+
+    function updateSummaryCard(regResult, aligned){
+        const row=document.getElementById('summaryRow');
+        const annualAlpha=regResult.coefficients[0]*252;
+        const rets=aligned.fundReturns, n=rets.length;
+        const meanRet=rets.reduce((a,b)=>a+b,0)/n;
+        const varRet=rets.reduce((s,r)=>s+(r-meanRet)**2,0)/(n-1);
+        const annualVol=Math.sqrt(varRet)*Math.sqrt(252), annualRet=meanRet*252;
+        const sharpe=annualVol>1e-10?annualRet/annualVol:0;
+        const items=[
+            {label:'R²',value:(regResult.rSquared*100).toFixed(2)+'%',cls:''},
+            {label:'调整R²',value:(regResult.adjRSquared*100).toFixed(2)+'%',cls:''},
+            {label:'年化Alpha',value:(annualAlpha*100).toFixed(3)+'%',cls:annualAlpha>=0?'positive':'negative'},
+            {label:'年化收益率',value:(annualRet*100).toFixed(2)+'%',cls:annualRet>=0?'positive':'negative'},
+            {label:'年化波动率',value:(annualVol*100).toFixed(2)+'%',cls:''},
+            {label:'夏普比率',value:sharpe.toFixed(3),cls:sharpe>=0?'positive':'negative'},
+            {label:'样本量',value:n+'天',cls:''},
+            {label:'因子数量',value:(regResult.k-1)+'个',cls:''}
+        ];
+        row.innerHTML = items.map(i=>`<div class="summary-item"><div class="val ${i.cls}">${i.value}</div><div class="lbl">${i.label}</div></div>`).join('');
+    }
+
+    function updateExposureTable(regResult){
+        const tbody=document.querySelector('#exposureTable tbody');
+        const rows=[];
+        const alphaBeta=regResult.coefficients[0], alphaSE=regResult.standardErrors[0], alphaT=regResult.tStats[0], alphaP=regResult.pValues[0];
+        const alphaSig=alphaP<0.01?'★★★':alphaP<0.05?'★★':alphaP<0.10?'★':'不显著';
+        const alphaSigClass=alphaP<0.05?'high':alphaP<0.10?'med':'low';
+        rows.push(`<tr style="background:var(--accent-soft);"><td style="font-weight:650;color:var(--accent);">Alpha（截距）</td><td style="font-family:var(--font-mono);font-weight:700;">${alphaBeta.toFixed(6)}</td><td style="font-family:var(--font-mono);">${alphaSE.toFixed(6)}</td><td style="font-family:var(--font-mono);">${alphaT.toFixed(3)}</td><td style="font-family:var(--font-mono);">${alphaP.toFixed(4)}</td><td><span class="badge-sig ${alphaSigClass}">${alphaSig}</span></td><td>—</td></tr>`);
+        for(let i=1;i<regResult.factorNames.length;i++){
+            const beta=regResult.coefficients[i], se=regResult.standardErrors[i], tStat=regResult.tStats[i], pVal=regResult.pValues[i], vif=regResult.vif[i];
+            let sigLabel='', sigClass='';
+            if(pVal<0.01){ sigLabel='★★★ 高度显著'; sigClass='high'; }
+            else if(pVal<0.05){ sigLabel='★★ 显著'; sigClass='high'; }
+            else if(pVal<0.10){ sigLabel='★ 较显著'; sigClass='med'; }
+            else { sigLabel='不显著'; sigClass='low'; }
+            rows.push(`<tr><td style="font-weight:600;">${regResult.factorNames[i]}</td><td style="font-family:var(--font-mono);font-weight:700;color:${beta>=0?'var(--success)':'var(--danger)'};">${beta.toFixed(4)}</td><td style="font-family:var(--font-mono);">${se.toFixed(4)}</td><td style="font-family:var(--font-mono);">${tStat.toFixed(3)}</td><td style="font-family:var(--font-mono);">${pVal.toFixed(4)}</td><td><span class="badge-sig ${sigClass}">${sigLabel}</span></td><td style="font-family:var(--font-mono);">${vif.toFixed(2)}</td></tr>`);
+        }
+        tbody.innerHTML=rows.join('');
+        document.getElementById('rSquaredVal').textContent=(regResult.rSquared*100).toFixed(2)+'%';
+        document.getElementById('adjRSquaredVal').textContent=(regResult.adjRSquared*100).toFixed(2)+'%';
+        document.getElementById('annualAlphaVal').textContent=(regResult.coefficients[0]*252*100).toFixed(3)+'%';
+    }
+
+    function updateCharts(regResult, aligned, rollingResults, selectedFactors){
+        destroyCharts();
+        const factorColors = ['#2d5a8e','#c8863a','#2d9d6b','#7c5cbf','#dc6b4c','#3a8fb5','#9b6b3d','#5a7c9e'];
+        const factorColorMap = {};
+        selectedFactors.forEach((fn,idx)=>{ factorColorMap[fn]=factorColors[idx%factorColors.length]; });
+        // 暴露度柱状图
+        const ctx1=document.getElementById('chartExposure').getContext('2d');
+        const expVals=regResult.coefficients.slice(1), expErrs=regResult.standardErrors.slice(1);
+        chartExposureInstance = new Chart(ctx1,{ type:'bar', data:{ labels:regResult.factorNames.slice(1), datasets:[{ label:'因子暴露度 (β)', data:expVals, backgroundColor:expVals.map(v=>v>=0?'rgba(45,157,107,0.75)':'rgba(220,76,76,0.75)'), borderColor:expVals.map(v=>v>=0?'rgba(45,157,107,1)':'rgba(220,76,76,1)'), borderWidth:1.5, borderRadius:6 }] }, options:{ responsive:true, plugins:{ title:{ display:true, text:'因子暴露度 (全样本OLS回归系数)', font:{size:13,weight:'600'}, color:'#1e3a5f' }, tooltip:{ callbacks:{ label:ctx=>{ const idx=ctx.dataIndex; return [`暴露度: ${expVals[idx].toFixed(4)}`,`标准误: ${expErrs[idx].toFixed(4)}`,`t值: ${regResult.tStats[idx+1].toFixed(3)}`,`p值: ${regResult.pValues[idx+1].toFixed(4)}`]; } } } }, scales:{ y:{ title:{display:true,text:'暴露度系数'}, grid:{color:'#eef2f7'} }, x:{ grid:{display:false} } } } });
+        // 净值曲线
+        const ctx2=document.getElementById('chartNAV').getContext('2d');
+        const navDates=STATE.fundNAV.dates, navData=STATE.fundNAV.nav;
+        const step=Math.max(1,Math.floor(navDates.length/8));
+        chartNAVInstance = new Chart(ctx2,{ type:'line', data:{ labels:navDates, datasets:[{ label:'基金净值', data:navData, borderColor:'#1e3a5f', backgroundColor:'rgba(30,58,95,0.06)', fill:true, borderWidth:2, pointRadius:0, tension:0.15 }] }, options:{ responsive:true, plugins:{ title:{display:true,text:'基金净值曲线', font:{size:13,weight:'600'}, color:'#1e3a5f'} }, scales:{ x:{ ticks:{ callback:(val,index)=>index%step===0?navDates[index]:'', maxRotation:45, font:{size:9} }, grid:{display:false} }, y:{ title:{display:true,text:'净值'}, grid:{color:'#eef2f7'} } } } });
+        // 滚动暴露度
+        updateRollingBetaChart(rollingResults, STATE.selectedRollingFactor||selectedFactors[0], factorColorMap, factorColors);
+        // 累计因子贡献
+        const ctx4=document.getElementById('chartCumContrib').getContext('2d');
+        const cumDatasets=[];
+        const alignedDates=aligned.dates;
+        selectedFactors.forEach((fn,idx)=>{
+            const beta=regResult.coefficients[idx+1];
+            const factorRets=aligned.factorMatrix[fn];
+            const cum=[0]; let c=0;
+            for(let i=0;i<factorRets.length;i++){ c+=beta*factorRets[i]; cum.push(c); }
+            cumDatasets.push({ label:fn+` (β=${beta.toFixed(3)})`, data:cum.slice(1), borderColor:factorColors[idx%factorColors.length], borderWidth:1.8, pointRadius:0, tension:0.1, fill:false });
+        });
+        const totalFitted=[0]; let cf=0;
+        for(let i=0;i<aligned.fundReturns.length;i++){ cf+=regResult.fitted[i]; totalFitted.push(cf); }
+        cumDatasets.push({ label:'因子拟合总收益', data:totalFitted.slice(1), borderColor:'#1e3a5f', borderWidth:2.5, borderDash:[6,3], pointRadius:0, tension:0.1, fill:false });
+        const actualCum=[0]; let ca=0;
+        for(let i=0;i<aligned.fundReturns.length;i++){ ca+=aligned.fundReturns[i]; actualCum.push(ca); }
+        cumDatasets.push({ label:'基金实际累计收益', data:actualCum.slice(1), borderColor:'#000000', borderWidth:2.5, pointRadius:0, tension:0.1, fill:false });
+        chartCumContribInstance = new Chart(ctx4,{ type:'line', data:{ labels:alignedDates, datasets:cumDatasets }, options:{ responsive:true, plugins:{ title:{display:true,text:'累计因子收益贡献归因'}, legend:{position:'bottom',labels:{boxWidth:14,padding:10,font:{size:10}}} }, scales:{ x:{ ticks:{ callback:(val,index)=>{ const s=Math.max(1,Math.floor(alignedDates.length/8)); return index%s===0?alignedDates[index]:''; }, maxRotation:45, font:{size:9} } }, y:{ title:{display:true,text:'累计对数收益'}, grid:{color:'#f0f0f0'} } } } });
+        updateFactorSeriesCharts(aligned, selectedFactors, factorColors);
+    }
+
+    function calcCumNav(dailyReturns) {
+        const nav = [1];
+        for (let i = 0; i < dailyReturns.length; i++) nav.push(nav[i] * (1 + dailyReturns[i]));
+        return nav.slice(1);
+    }
+
+    function calcRollingStd(series, windowSize) {
+        const out = [];
+        for (let i = 0; i < series.length; i++) {
+            if (i + 1 < windowSize) { out.push(null); continue; }
+            const slice = series.slice(i + 1 - windowSize, i + 1);
+            const mean = slice.reduce((a, b) => a + b, 0) / windowSize;
+            const variance = slice.reduce((s, v) => s + (v - mean) ** 2, 0) / (windowSize - 1);
+            out.push(Math.sqrt(Math.max(variance, 0)));
+        }
+        return out;
+    }
+
+    function updateFactorSeriesCharts(aligned, selectedFactors, factorColors) {
+        if (chartFactorCumNavInstance) chartFactorCumNavInstance.destroy();
+        if (chartFactorDailyInstance) chartFactorDailyInstance.destroy();
+        if (chartFactorRollingVolInstance) chartFactorRollingVolInstance.destroy();
+
+        const alignedDates = aligned.dates;
+        const tickStep = Math.max(1, Math.floor(alignedDates.length / 8));
+        const xTick = (val, index) => index % tickStep === 0 ? alignedDates[index] : '';
+
+        const cumDatasets = selectedFactors.map((fn, idx) => ({
+            label: fn,
+            data: calcCumNav(aligned.factorMatrix[fn]),
+            borderColor: factorColors[idx % factorColors.length],
+            backgroundColor: factorColors[idx % factorColors.length] + '18',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.12,
+            fill: false,
+        }));
+
+        const ctxCum = document.getElementById('chartFactorCumNav').getContext('2d');
+        chartFactorCumNavInstance = new Chart(ctxCum, {
+            type: 'line',
+            data: { labels: alignedDates, datasets: cumDatasets },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: true, text: '因子累计收益序列（净值化，起点=1）' },
+                    legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8, font: { size: 10 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => {
+                                const ret = (ctx.parsed.y - 1) * 100;
+                                return `${ctx.dataset.label}: 净值 ${ctx.parsed.y.toFixed(4)} (${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { callback: xTick, maxRotation: 45, font: { size: 9 } } },
+                    y: { title: { display: true, text: '因子净值' }, grid: { color: '#f0f0f0' } }
+                }
+            }
+        });
+
+        const seriesFactor = STATE.selectedSeriesFactor || selectedFactors[0];
+        const factorIdx = selectedFactors.indexOf(seriesFactor);
+        const seriesColor = factorColors[(factorIdx >= 0 ? factorIdx : 0) % factorColors.length];
+        const dailyRets = aligned.factorMatrix[seriesFactor] || [];
+        const dailyPct = dailyRets.map(v => v * 100);
+
+        const ctxDaily = document.getElementById('chartFactorDaily').getContext('2d');
+        chartFactorDailyInstance = new Chart(ctxDaily, {
+            type: 'bar',
+            data: {
+                labels: alignedDates,
+                datasets: [{
+                    label: `${seriesFactor} 日收益率 (%)`,
+                    data: dailyPct,
+                    backgroundColor: dailyPct.map(v => v >= 0 ? 'rgba(45,157,107,0.65)' : 'rgba(220,76,76,0.65)'),
+                    borderColor: dailyPct.map(v => v >= 0 ? 'rgba(45,157,107,1)' : 'rgba(220,76,76,1)'),
+                    borderWidth: 0.5,
+                    borderRadius: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: true, text: `因子日收益序列: ${seriesFactor}` },
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { ticks: { callback: xTick, maxRotation: 45, font: { size: 9 } }, display: alignedDates.length <= 120 },
+                    y: { title: { display: true, text: '日收益率 (%)' }, grid: { color: '#f0f0f0' } }
+                }
+            }
+        });
+
+        const rollWindow = Math.min(20, Math.max(5, Math.floor(alignedDates.length / 10)));
+        const rollingVol = calcRollingStd(dailyRets, rollWindow).map(v => v == null ? null : v * Math.sqrt(252) * 100);
+        const ctxVol = document.getElementById('chartFactorRollingVol').getContext('2d');
+        chartFactorRollingVolInstance = new Chart(ctxVol, {
+            type: 'line',
+            data: {
+                labels: alignedDates,
+                datasets: [{
+                    label: `${rollWindow}日滚动年化波动率 (%)`,
+                    data: rollingVol,
+                    borderColor: seriesColor,
+                    backgroundColor: seriesColor + '22',
+                    fill: true,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.2,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: true, text: `因子滚动波动率: ${seriesFactor}` },
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { ticks: { callback: xTick, maxRotation: 45, font: { size: 9 } } },
+                    y: { title: { display: true, text: '年化波动率 (%)' }, grid: { color: '#f0f0f0' } }
+                }
+            }
+        });
+    }
+
+    function updateFactorSeriesSelector(selectedFactors) {
+        const container = document.getElementById('factorSeriesSelector');
+        const factorColors = ['#2d5a8e','#c8863a','#2d9d6b','#7c5cbf','#dc6b4c','#3a8fb5'];
+        container.innerHTML = '<span style="font-size:0.75rem;color:var(--text-light);margin-right:6px;">查看单因子序列:</span>' +
+            selectedFactors.map((fn, idx) =>
+                `<span class="factor-chip${fn === STATE.selectedSeriesFactor ? ' active' : ''}" data-factor="${fn}" style="border-color:${factorColors[idx % 6]}40;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${factorColors[idx % 6]};margin-right:4px;"></span>${fn}</span>`
+            ).join('');
+        container.querySelectorAll('.factor-chip').forEach(chip => {
+            chip.addEventListener('click', function () {
+                STATE.selectedSeriesFactor = this.dataset.factor;
+                updateFactorSeriesSelector(selectedFactors);
+                if (STATE.alignedData && STATE.regressionResult) {
+                    const factorColors = ['#2d5a8e','#c8863a','#2d9d6b','#7c5cbf','#dc6b4c','#3a8fb5','#9b6b3d','#5a7c9e'];
+                    const selected = STATE.alignedData.factorNames;
+                    updateFactorSeriesCharts(STATE.alignedData, selected, factorColors);
+                }
+            });
+        });
+    }
+
+    function updateRollingBetaChart(rollingResults, factorName, factorColorMap, factorColors){
+        if(chartRollingBetaInstance) chartRollingBetaInstance.destroy();
+        if(!rollingResults||!factorName) return;
+        const ctx=document.getElementById('chartRollingBeta').getContext('2d');
+        const betas=rollingResults.betas[factorName]||[], dates=rollingResults.dates;
+        const color=factorColorMap[factorName]||'#1e3a5f';
+        const step=Math.max(1,Math.floor(dates.length/6));
+        const upperCI=betas.map((b,i)=>{ const se=rollingResults.tStats[factorName]?Math.abs(b/Math.max(Math.abs(rollingResults.tStats[factorName][i]),0.01)):0.05; return b+1.96*se; });
+        const lowerCI=betas.map((b,i)=>{ const se=rollingResults.tStats[factorName]?Math.abs(b/Math.max(Math.abs(rollingResults.tStats[factorName][i]),0.01)):0.05; return b-1.96*se; });
+        chartRollingBetaInstance = new Chart(ctx,{ type:'line', data:{ labels:dates, datasets:[
+            { label:`${factorName} 滚动暴露度`, data:betas, borderColor:color, borderWidth:2, pointRadius:0, tension:0.2 },
+            { label:'95%CI上界', data:upperCI, borderColor:color+'55', borderWidth:1, borderDash:[3,4], pointRadius:0, tension:0.2, fill:false },
+            { label:'95%CI下界', data:lowerCI, borderColor:color+'55', borderWidth:1, borderDash:[3,4], pointRadius:0, tension:0.2, fill:{target:1,above:color+'15'} },
+            { label:'零线', data:dates.map(()=>0), borderColor:'#999', borderWidth:1, borderDash:[2,6], pointRadius:0, fill:false }
+        ] }, options:{ responsive:true, plugins:{ title:{display:true,text:`滚动暴露度: ${factorName}`}, legend:{display:false} }, scales:{ x:{ ticks:{ callback:(val,index)=>index%step===0?dates[index]:'', maxRotation:45, font:{size:9} } }, y:{ title:{display:true,text:'暴露度'}, grid:{color:'#f0f0f0'} } } } });
+    }
+
+    function updateRollingFactorSelector(selectedFactors){
+        const container=document.getElementById('rollingFactorSelector');
+        const factorColors=['#2d5a8e','#c8863a','#2d9d6b','#7c5cbf','#dc6b4c','#3a8fb5'];
+        container.innerHTML=selectedFactors.map((fn,idx)=>`<span class="factor-chip${fn===STATE.selectedRollingFactor?' active':''}" data-factor="${fn}" style="border-color:${factorColors[idx%6]}40;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${factorColors[idx%6]};margin-right:4px;"></span>${fn}</span>`).join('');
+        container.querySelectorAll('.factor-chip').forEach(chip=>{ chip.addEventListener('click',function(){ STATE.selectedRollingFactor=this.dataset.factor; updateRollingFactorSelector(selectedFactors); if(STATE.rollingResults) updateRollingBetaChart(STATE.rollingResults, STATE.selectedRollingFactor, {}, factorColors); }); });
+    }
+
+    function exportReport(){
+        if(!STATE.regressionResult){ showToast('请先运行分析','error'); return; }
+        const reg=STATE.regressionResult;
+        let csv='因子暴露度分析报告\n=======================\n\n因子,暴露度(β),标准误,t统计量,p值,显著性,VIF\n';
+        for(let i=0;i<reg.factorNames.length;i++){
+            const pv=reg.pValues[i], sig=pv<0.01?'高度显著':pv<0.05?'显著':pv<0.10?'较显著':'不显著';
+            const vif=i===0?'N/A':reg.vif[i].toFixed(2);
+            csv+=`${reg.factorNames[i]},${reg.coefficients[i].toFixed(6)},${reg.standardErrors[i].toFixed(6)},${reg.tStats[i].toFixed(4)},${pv.toFixed(4)},${sig},${vif}\n`;
+        }
+        csv+=`\nR²,${reg.rSquared.toFixed(4)}\n调整R²,${reg.adjRSquared.toFixed(4)}\n年化Alpha,${(reg.coefficients[0]*252*100).toFixed(3)}%\n样本量,${reg.n}\n因子数量,${reg.k-1}\n`;
+        const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+        const url=URL.createObjectURL(blob);
+        const link=document.createElement('a'); link.href=url; link.download='CTA因子暴露度报告_'+new Date().toISOString().split('T')[0]+'.csv';
+        link.click(); URL.revokeObjectURL(url);
+        showToast('报告已导出');
+    }
+
+    // ==================== 事件绑定 ====================
+    document.getElementById('fileInput').addEventListener('change', function(e){
+        const file=e.target.files[0]; if(!file) return;
+        const reader=new FileReader();
+        reader.onload=function(ev){
+            try{
+                STATE.fundNAV = parseFundCSV(ev.target.result);
+                updateDataStatus(); updateDataSummary(); resetResults();
+                showToast('成功导入基金净值数据');
+            }catch(err){ showToast('基金CSV解析失败：'+err.message,'error'); }
+        };
+        reader.readAsText(file);
+    });
+
+    // ★ 因子文件上传处理
+    document.getElementById('factorFileInput').addEventListener('change', function(e){
+        const file=e.target.files[0]; if(!file) return;
+        const reader=new FileReader();
+        reader.onload=function(ev){
+            try{
+                const parsed = parseFactorCSV(ev.target.result);
+                STATE.factorData = parsed;
+                STATE.useBuiltInFactors = false;
+                document.getElementById('factorStatus').innerHTML = `当前使用：<strong style="color:var(--success);">用户上传因子（${parsed.factorNames.length}个）</strong> — ${parsed.dates.length} 个交易日`;
+                updateFactorCheckboxes();
+                resetResults();
+                showToast(`成功导入 ${parsed.factorNames.length} 个市场因子`);
+            }catch(err){ showToast('因子CSV解析失败：'+err.message,'error'); }
+        };
+        reader.readAsText(file);
+    });
+
+    document.getElementById('btnResetFactors').addEventListener('click', function(){
+        STATE.factorData = generateBuiltInFactorData();
+        STATE.useBuiltInFactors = true;
+        document.getElementById('factorStatus').innerHTML = '当前使用：<strong>内置模拟因子（6个）</strong>';
+        updateFactorCheckboxes();
+        resetResults();
+        showToast('已恢复为内置模拟因子');
+    });
+
+    document.getElementById('btnLoadDemo').addEventListener('click', function(){
+        const facData = STATE.factorData; // 使用当前因子数据（可能是用户上传的）
+        const demoFund = generateDemoFund(facData);
+        STATE.fundNAV = { dates:[...demoFund.dates], nav:[...demoFund.nav], returns:[...demoFund.returns], initialNAV:demoFund.initialNAV };
+        updateDataStatus(); updateDataSummary(); resetResults();
+        showToast('已加载示例基金数据');
+        setTimeout(()=>runAnalysis(),200);
+    });
+
+    document.getElementById('btnClearData').addEventListener('click', function(){
+        STATE.fundNAV=null; STATE.alignedData=null; STATE.regressionResult=null; STATE.rollingResults=null;
+        updateDataStatus(); updateDataSummary(); resetResults();
+        document.getElementById('fileInput').value='';
+        showToast('已清除基金数据');
+    });
+
+    document.getElementById('btnRunAnalysis').addEventListener('click', runAnalysis);
+    document.getElementById('btnExportReport').addEventListener('click', exportReport);
+
+    // 初始化
+    function init(){
+        STATE.factorData = generateBuiltInFactorData();
+        updateFactorCheckboxes();
+        updateDataStatus();
+        // 预加载示例基金
+        const demoFund = generateDemoFund(STATE.factorData);
+        STATE.fundNAV = { dates:[...demoFund.dates], nav:[...demoFund.nav], returns:[...demoFund.returns], initialNAV:demoFund.initialNAV };
+        updateDataStatus(); updateDataSummary();
+        setTimeout(()=>runAnalysis(),300);
+    }
+    init();
+})();
+</script>
+</body>
+</html>
